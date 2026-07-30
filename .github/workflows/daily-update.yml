@@ -85,6 +85,7 @@ jobs:
 
       - name: Send email
         working-directory: scripts
+        continue-on-error: true
         run: python send_email.py
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
