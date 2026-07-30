@@ -1,0 +1,126 @@
+name: Daily Stock Update
+
+on:
+  schedule:
+    # 8:00 AM IST = 02:30 UTC (fundamental report + email)
+    - cron: '30 2 * * *'
+    # 8:25 AM IST = 02:55 UTC weekdays (technical dashboard)
+    - cron: '55 2 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      run_type:
+        description: 'What to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - technical
+          - fundamental
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Determine run type
+        id: runtype
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ inputs.run_type }}" >> $GITHUB_OUTPUT
+          else
+            # Check which cron triggered (approximate by current UTC minute)
+            MIN=$(date -u +%M)
+            if [ "$MIN" -lt "50" ]; then
+              echo "type=fundamental" >> $GITHUB_OUTPUT
+            else
+              echo "type=technical" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Fetch market data
+        working-directory: scripts
+        run: python fetch_data.py
+
+      - name: Run technical analysis
+        if: steps.runtype.outputs.type == 'technical' || steps.runtype.outputs.type == 'full'
+        working-directory: scripts
+        run: python ta_engine.py
+
+      - name: Generate dashboard
+        if: steps.runtype.outputs.type == 'technical' || steps.runtype.outputs.type == 'full'
+        working-directory: scripts
+        run: python generate_dashboard.py
+
+      # TODO: Uncomment when fetch_fundamentals.py and generate_report.py are implemented
+      # - name: Fetch fundamentals
+      #   if: steps.runtype.outputs.type == 'fundamental' || steps.runtype.outputs.type == 'full'
+      #   working-directory: scripts
+      #   run: python fetch_fundamentals.py
+      #
+      # - name: Generate report
+      #   if: steps.runtype.outputs.type == 'fundamental' || steps.runtype.outputs.type == 'full'
+      #   working-directory: scripts
+      #   run: python generate_report.py
+
+      - name: Generate email and chart images
+        working-directory: scripts
+        run: python generate_email.py
+
+      - name: Send email
+        working-directory: scripts
+        run: python send_email.py
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+
+      - name: Archive today's output
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          mkdir -p site/archive/$DATE
+          [ -d site/dashboard ] && cp -r site/dashboard site/archive/$DATE/ || true
+          [ -d site/report ] && cp -r site/report site/archive/$DATE/ || true
+
+      - name: Prune old archives (keep 90 days)
+        run: |
+          if [ -d site/archive ]; then
+            CUTOFF=$(date -d '90 days ago' +%Y-%m-%d)
+            cd site/archive
+            for dir in 20*; do
+              if [ -d "$dir" ] && [ "$dir" \< "$CUTOFF" ]; then
+                rm -rf "$dir"
+                echo "Pruned $dir"
+              fi
+            done
+          fi
+
+      - name: Generate archive index
+        working-directory: scripts
+        run: python generate_archive_index.py
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          keep_files: true
+          commit_message: "Update ${{ steps.runtype.outputs.type }} - $(date +%Y-%m-%d)"

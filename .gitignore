@@ -1,0 +1,9 @@
+data/*.json
+data/email_body.html
+site/dashboard/index.html
+site/report/index.html
+site/assets/charts/*.png
+__pycache__/
+*.pyc
+.env
+.DS_Store
