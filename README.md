@@ -1,11 +1,11 @@
-# Stock Watchlist Platform
+# Repati Kosam
 
-Automated daily pre-market analysis for 9 Indian stocks. Zero-cost infrastructure using GitHub Actions + GitHub Pages + SendGrid email.
+Automated daily pre-market analysis for 9 Indian stocks. Zero-cost infrastructure using GitHub Actions + GitHub Pages + email delivery.
 
 ## Folder Structure
 
 ```
-stock-watchlist/
+Repati-Kosam/
 ├── docs/                              ← Design documents
 │   ├── Technical_Design_Document_v1.md    Full-stack TDD (server-based architecture)
 │   └── Technical_Design_Document_v2.md    GitHub Pages TDD (zero-cost, current)
@@ -45,7 +45,7 @@ stock-watchlist/
 
 ```bash
 # 1. Clone
-git clone https://github.com/{you}/stock-watchlist.git && cd stock-watchlist
+git clone https://github.com/munukuvenkatesh12-bit/Repati-Kosam.git && cd Repati-Kosam
 
 # 2. Install
 pip install -r requirements.txt
@@ -65,7 +65,7 @@ open ../site/dashboard/index.html
 
 1. Push this repo to GitHub
 2. Add secrets: `SENDGRID_API_KEY`, `EMAIL_TO`
-3. Add variable: `SITE_URL` = `https://{you}.github.io/stock-watchlist`
+3. Add variable: `SITE_URL` = `https://munukuvenkatesh12-bit.github.io/Repati-Kosam`
 4. Enable GitHub Pages (Settings → Pages → Branch: `gh-pages`)
 5. Done — runs automatically at 8:00 AM and 8:25 AM IST
 
