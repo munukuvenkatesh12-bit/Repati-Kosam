@@ -1,7 +1,7 @@
 """
 Send the daily stock watchlist email via SendGrid (primary) or Gmail SMTP (fallback).
 Input:  data/email_body.html
-Env:    SENDGRID_API_KEY, EMAIL_TO, EMAIL_FROM (optional)
+Env:    SENDGRID_API_KEY, EMAIL_TO (comma-separated for multiple recipients), EMAIL_FROM (optional)
 """
 import json
 import os
@@ -31,10 +31,10 @@ def get_subject(ta_data: dict) -> str:
     return f"📊 Stock Watchlist — {date_formatted} — {bulls} Bullish, {bears} Bearish"
 
 
-def send_via_sendgrid(to: str, subject: str, html_body: str, from_email: str):
+def send_via_sendgrid(to: list[str], subject: str, html_body: str, from_email: str):
     """Send email using SendGrid v3 API."""
     payload = json.dumps({
-        "personalizations": [{"to": [{"email": to}]}],
+        "personalizations": [{"to": [{"email": addr} for addr in to]}],
         "from": {"email": from_email.split("<")[-1].rstrip(">").strip() if "<" in from_email else from_email,
                  "name": from_email.split("<")[0].strip() if "<" in from_email else "Stock Watchlist"},
         "subject": subject,
@@ -55,7 +55,7 @@ def send_via_sendgrid(to: str, subject: str, html_body: str, from_email: str):
         with urlopen(req, timeout=30) as resp:
             status = resp.status
         if status in (200, 201, 202):
-            print(f"✅ Email sent via SendGrid to {to}")
+            print(f"✅ Email sent via SendGrid to {', '.join(to)}")
             return True
         else:
             print(f"⚠ SendGrid returned status {status}")
@@ -66,7 +66,7 @@ def send_via_sendgrid(to: str, subject: str, html_body: str, from_email: str):
         return False
 
 
-def send_via_smtp(to: str, subject: str, html_body: str, from_email: str):
+def send_via_smtp(to: list[str], subject: str, html_body: str, from_email: str):
     """Fallback: send via Gmail SMTP. Requires GMAIL_APP_PASSWORD env var."""
     gmail_user = os.getenv("GMAIL_USER", "")
     gmail_pass = os.getenv("GMAIL_APP_PASSWORD", "")
@@ -78,7 +78,7 @@ def send_via_smtp(to: str, subject: str, html_body: str, from_email: str):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = from_email
-    msg["To"] = to
+    msg["To"] = ", ".join(to)
 
     # Plain text fallback
     text_body = f"Daily Stock Watchlist Report — view in browser or enable HTML email."
@@ -89,7 +89,7 @@ def send_via_smtp(to: str, subject: str, html_body: str, from_email: str):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(gmail_user, gmail_pass)
             server.sendmail(gmail_user, to, msg.as_string())
-        print(f"✅ Email sent via Gmail SMTP to {to}")
+        print(f"✅ Email sent via Gmail SMTP to {', '.join(to)}")
         return True
     except Exception as e:
         print(f"❌ SMTP error: {e}")
@@ -114,7 +114,7 @@ def main():
             ta_data = json.load(f)
 
     subject = get_subject(ta_data)
-    to = EMAIL_TO
+    to = [addr.strip() for addr in EMAIL_TO.split(",") if addr.strip()]
     from_email = EMAIL_FROM
 
     if not to:
@@ -122,7 +122,7 @@ def main():
         sys.exit(1)
 
     print(f"📧 Sending: {subject}")
-    print(f"   To: {to}")
+    print(f"   To: {', '.join(to)}")
 
     # Try SendGrid first
     if SENDGRID_API_KEY:
