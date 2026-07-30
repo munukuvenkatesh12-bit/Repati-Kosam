@@ -82,6 +82,8 @@ jobs:
       - name: Generate email and chart images
         working-directory: scripts
         run: python generate_email.py
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
 
       - name: Send email
         working-directory: scripts
