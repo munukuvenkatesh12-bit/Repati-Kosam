@@ -1,10 +1,10 @@
 """
-Send the daily stock watchlist email via SendGrid (primary) or Gmail SMTP (fallback).
+Send the daily stock watchlist email via SendGrid (primary) or generic SMTP (fallback).
 Input:  data/email_body.html
-Env:    SENDGRID_API_KEY, EMAIL_TO (comma-separated for multiple recipients), EMAIL_FROM (optional)
+Env:    SENDGRID_API_KEY, MAIL_TO (comma-separated for multiple recipients), EMAIL_FROM (optional),
+        SMTP_HOST, SMTP_PORT (465=SSL, 587=STARTTLS), SMTP_USER, SMTP_PASS
 """
 import json
-import os
 import sys
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -13,7 +13,10 @@ from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
-from config import DATA_DIR, EMAIL_FROM, EMAIL_TO, SENDGRID_API_KEY
+from config import (
+    DATA_DIR, EMAIL_FROM, MAIL_TO, SENDGRID_API_KEY,
+    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
+)
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -67,12 +70,9 @@ def send_via_sendgrid(to: list[str], subject: str, html_body: str, from_email: s
 
 
 def send_via_smtp(to: list[str], subject: str, html_body: str, from_email: str):
-    """Fallback: send via Gmail SMTP. Requires GMAIL_APP_PASSWORD env var."""
-    gmail_user = os.getenv("GMAIL_USER", "")
-    gmail_pass = os.getenv("GMAIL_APP_PASSWORD", "")
-
-    if not gmail_user or not gmail_pass:
-        print("❌ SMTP fallback unavailable: GMAIL_USER and GMAIL_APP_PASSWORD not set.")
+    """Fallback: send via generic SMTP. Requires SMTP_HOST, SMTP_USER, SMTP_PASS env vars."""
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+        print("❌ SMTP fallback unavailable: SMTP_HOST, SMTP_USER and SMTP_PASS not all set.")
         return False
 
     msg = MIMEMultipart("alternative")
@@ -86,10 +86,15 @@ def send_via_smtp(to: list[str], subject: str, html_body: str, from_email: str):
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(gmail_user, gmail_pass)
-            server.sendmail(gmail_user, to, msg.as_string())
-        print(f"✅ Email sent via Gmail SMTP to {', '.join(to)}")
+        if SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            server.starttls()
+        with server:
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, to, msg.as_string())
+        print(f"✅ Email sent via SMTP ({SMTP_HOST}) to {', '.join(to)}")
         return True
     except Exception as e:
         print(f"❌ SMTP error: {e}")
@@ -114,11 +119,11 @@ def main():
             ta_data = json.load(f)
 
     subject = get_subject(ta_data)
-    to = [addr.strip() for addr in EMAIL_TO.split(",") if addr.strip()]
+    to = [addr.strip() for addr in MAIL_TO.split(",") if addr.strip()]
     from_email = EMAIL_FROM
 
     if not to:
-        print("❌ EMAIL_TO not configured. Set it in env or config.py.")
+        print("❌ MAIL_TO not configured. Set it in env or config.py.")
         sys.exit(1)
 
     print(f"📧 Sending: {subject}")

@@ -49,8 +49,12 @@ FALLBACK_ATR_MULT = 1.5
 
 # ─── Email ───
 EMAIL_FROM = os.getenv("EMAIL_FROM", "Stock Watchlist <noreply@stockwatch.dev>")
-EMAIL_TO = os.getenv("EMAIL_TO", "")
+MAIL_TO = os.getenv("MAIL_TO", "")
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
 SITE_URL = os.getenv("SITE_URL", "https://yourusername.github.io/stock-watchlist")
 
 # ─── Archive ───
