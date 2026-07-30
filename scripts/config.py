@@ -29,10 +29,14 @@ STOCKS = [
 ]
 
 # ─── Yahoo Finance API ───
-YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
-FETCH_DELAY = 0.2          # seconds between requests
-FETCH_RETRIES = 3
-FETCH_BACKOFF = [1, 2, 4]  # seconds per retry
+YAHOO_HOSTS = [
+    "https://query1.finance.yahoo.com/v8/finance/chart",
+    "https://query2.finance.yahoo.com/v8/finance/chart",
+]
+YAHOO_BASE = YAHOO_HOSTS[0]
+FETCH_DELAY = 1.5             # seconds between requests
+FETCH_RETRIES = 4
+FETCH_BACKOFF = [3, 8, 15, 30]  # seconds per retry
 
 # ─── TA Parameters ───
 EMA_SHORT = 20

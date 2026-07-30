@@ -9,17 +9,22 @@ from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
-from config import STOCKS, YAHOO_BASE, FETCH_DELAY, FETCH_RETRIES, FETCH_BACKOFF, DATA_DIR
+from config import STOCKS, YAHOO_HOSTS, FETCH_DELAY, FETCH_RETRIES, FETCH_BACKOFF, DATA_DIR
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def fetch_yahoo(ticker: str, range_str: str, interval: str = "1d") -> dict | None:
-    """Fetch OHLCV from Yahoo Finance v8 Chart API with retries."""
-    url = f"{YAHOO_BASE}/{ticker}?range={range_str}&interval={interval}&includePrePost=false"
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; StockWatchlist/2.0)"}
+    """Fetch OHLCV from Yahoo Finance v8 Chart API with retries, alternating hosts."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+    }
 
     for attempt in range(FETCH_RETRIES):
+        host = YAHOO_HOSTS[attempt % len(YAHOO_HOSTS)]
+        url = f"{host}/{ticker}?range={range_str}&interval={interval}&includePrePost=false"
         try:
             req = Request(url, headers=headers)
             with urlopen(req, timeout=15) as resp:
@@ -30,7 +35,7 @@ def fetch_yahoo(ticker: str, range_str: str, interval: str = "1d") -> dict | Non
                 return None
             return result[0]
         except (HTTPError, URLError, Exception) as e:
-            wait = FETCH_BACKOFF[attempt] if attempt < len(FETCH_BACKOFF) else 4
+            wait = FETCH_BACKOFF[attempt] if attempt < len(FETCH_BACKOFF) else 30
             print(f"  ⚠ Attempt {attempt + 1}/{FETCH_RETRIES} failed for {ticker}: {e}")
             if attempt < FETCH_RETRIES - 1:
                 time.sleep(wait)
