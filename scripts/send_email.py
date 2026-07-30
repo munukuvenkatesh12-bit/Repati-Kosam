@@ -22,16 +22,13 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def get_subject(ta_data: dict) -> str:
-    """Build email subject line with date and bull/bear count."""
-    stocks = {k: v for k, v in ta_data.get("stocks", {}).items() if "error" not in v}
-    bulls = sum(1 for s in stocks.values() if s.get("trend") == "bull")
-    bears = len(stocks) - bulls
+    """Build email subject line with report date."""
     date_str = ta_data.get("date", datetime.now(IST).strftime("%Y-%m-%d"))
     try:
         date_formatted = datetime.strptime(date_str, "%Y-%m-%d").strftime("%d %b %Y")
     except Exception:
         date_formatted = date_str
-    return f"📊 Stock Watchlist — {date_formatted} — {bulls} Bullish, {bears} Bearish"
+    return f"Repati Kosam {date_formatted}"
 
 
 def send_via_sendgrid(to: list[str], subject: str, html_body: str, from_email: str):
