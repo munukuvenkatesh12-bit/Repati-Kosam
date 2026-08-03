@@ -2,21 +2,9 @@ name: Daily Stock Update
 
 on:
   schedule:
-    # 8:00 AM IST = 02:30 UTC (fundamental report + email)
-    - cron: '30 2 * * *'
-    # 8:25 AM IST = 02:55 UTC weekdays (technical dashboard)
-    - cron: '55 2 * * 1-5'
+    # 7:00 AM IST = 01:30 UTC daily
+    - cron: '30 1 * * *'
   workflow_dispatch:
-    inputs:
-      run_type:
-        description: 'What to run'
-        required: true
-        default: 'full'
-        type: choice
-        options:
-          - full
-          - technical
-          - fundamental
 
 permissions:
   contents: write
@@ -39,45 +27,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Determine run type
-        id: runtype
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "type=${{ inputs.run_type }}" >> $GITHUB_OUTPUT
-          else
-            # Check which cron triggered (approximate by current UTC minute)
-            MIN=$(date -u +%M)
-            if [ "$MIN" -lt "50" ]; then
-              echo "type=fundamental" >> $GITHUB_OUTPUT
-            else
-              echo "type=technical" >> $GITHUB_OUTPUT
-            fi
-          fi
-
       - name: Fetch market data
         working-directory: scripts
         run: python fetch_data.py
 
       - name: Run technical analysis
-        if: steps.runtype.outputs.type == 'technical' || steps.runtype.outputs.type == 'full'
         working-directory: scripts
         run: python ta_engine.py
 
       - name: Generate dashboard
-        if: steps.runtype.outputs.type == 'technical' || steps.runtype.outputs.type == 'full'
         working-directory: scripts
         run: python generate_dashboard.py
-
-      # TODO: Uncomment when fetch_fundamentals.py and generate_report.py are implemented
-      # - name: Fetch fundamentals
-      #   if: steps.runtype.outputs.type == 'fundamental' || steps.runtype.outputs.type == 'full'
-      #   working-directory: scripts
-      #   run: python fetch_fundamentals.py
-      #
-      # - name: Generate report
-      #   if: steps.runtype.outputs.type == 'fundamental' || steps.runtype.outputs.type == 'full'
-      #   working-directory: scripts
-      #   run: python generate_report.py
 
       - name: Generate email and chart images
         working-directory: scripts
@@ -128,4 +88,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./site
           keep_files: true
-          commit_message: "Update ${{ steps.runtype.outputs.type }} - $(date +%Y-%m-%d)"
+          commit_message: "Update $(date +%Y-%m-%d)"
